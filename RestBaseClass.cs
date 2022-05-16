@@ -6,6 +6,8 @@ namespace RestTestProject
     public class RestBaseClass
     {
         protected readonly string BaseUrl = "https://reqres.in/";
+        protected int ResponseCode;
+
         public TestContext TestContext { get; set; }
 
         #region InitAndCleanup

@@ -19,10 +19,14 @@ namespace RestTestProject
             var endPointUrl = BaseUrl.AppendPathSegment(PathSegment)
                 .SetQueryParam("page",1);
 
-            // If you are desperate for speed increase, don't use dynamic as the data is stored on the heap.
-            dynamic usersPage = await endPointUrl.GetJsonAsync()
+            // If you are interested in the actual response code then you need to capture the response before deserialization
+            var response = await endPointUrl.GetAsync();
+            response.StatusCode.Should().Be(200, "We only allow 200 for this test vs. the range of 200..299 which is typically allowed.");
+            ResponseCode = response.StatusCode;
+
+            var usersPage = await response.GetJsonAsync()
                 .ConfigureAwait(true);
-           
+
             int userCount = 0;
             while (usersPage.page <= usersPage.total_pages) // 1 based loop
             {
@@ -32,9 +36,9 @@ namespace RestTestProject
                     .ConfigureAwait(true);
             }
           
-            Console.WriteLine($"The sum of all Data array.counts (userCount) is: {userCount} and the total of all users (usersPage.total) is: {usersPage.total}");
+            TestContext.WriteLine($"The sum of all Data array.counts (userCount) is: {userCount} and the total of all users (usersPage.total) is: {usersPage.total}");
             userCount.Should().Be((int)usersPage.total,
-                "the Users object total was not equal to the count of all the Users data array counts.");
+                "The Users object total was not equal to the count of all the Users data array counts.");
         }
 
         [TestMethod]
@@ -47,6 +51,7 @@ namespace RestTestProject
                 .SetQueryParam("page", 1)
                 .SetQueryParam("per_page", perPageValue);
 
+            // If you are desperate for speed increase, don't use dynamic as the data is stored on the heap.
             dynamic usersPage = await endPointUrl
                 .GetJsonAsync()
                 .ConfigureAwait(true);
@@ -59,11 +64,11 @@ namespace RestTestProject
                     : (int)usersPage.total % perPageValue;
 
                 int userCount = (int)usersPage.data.Count;
+
+                // ok for debugging, but shouldn't be in checked-in code. If wanted use Logger.
+                TestContext.WriteLine($"The length of Data array (userCount) is: {userCount} and my calculated correctDataCount is: {correctDataCount}");
                 
-                // ok for debugging, but shouldn't be in checked-in code. If anything should use Logger.LogInfo or Trace
-                Console.WriteLine($"The length of Data array (userCount) is: {userCount} and my calculated correctDataCount is: {correctDataCount}");
-                
-                userCount.Should().Be(correctDataCount, "the number of users in the data array is not correct.");
+                userCount.Should().Be(correctDataCount, "The number of users in the data array is not correct.");
 
                 usersPage = await endPointUrl
                     .SetQueryParam("page", (int)usersPage.page + 1)
@@ -79,14 +84,20 @@ namespace RestTestProject
         public void TestCaseInit()
         {
             // Count something, Log title and timestamp
-            Console.WriteLine($"{TestContext.TestName} Starting.");
+            TestContext.WriteLine($"{TestContext.TestName} Starting.");
         }
 
         [TestCleanup]
         public void TestCaseCleanup()
         {
             // Maybe custom logging, you could do a runtime timestamp, or perhaps on a fail add files/screenshot to results
-            Console.WriteLine($"{TestContext.TestName} Ending.");
+            if (TestContext.CurrentTestOutcome == UnitTestOutcome.Passed)
+            {
+                var responseMsg = ResponseCode == 0 ? "between 200 and 299" : ResponseCode.ToString();
+                TestContext.WriteLine($"The response status code was: {responseMsg}.");
+            }
+
+            TestContext.WriteLine($"{TestContext.TestName} Ending.");
         }
         #endregion
 
